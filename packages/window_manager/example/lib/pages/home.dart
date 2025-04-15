@@ -7,8 +7,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:preference_list/preference_list.dart';
 import 'package:tray_manager/tray_manager.dart';
-import 'package:window_manager/window_manager.dart';
-import 'package:window_manager_example/utils/config.dart';
+import 'package:window_manager_plus/window_manager_plus.dart';
+import 'package:window_manager_plus_example/utils/config.dart';
 
 const _kSizes = [
   Size(400, 400),
@@ -57,18 +57,27 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
   String _iconType = _kIconTypeOriginal;
   bool _isVisibleOnAllWorkspaces = false;
 
+  final TextEditingController _methodNameController =
+      TextEditingController(text: 'testMethodName');
+  final TextEditingController _firstArgController =
+      TextEditingController();
+
   @override
   void initState() {
     trayManager.addListener(this);
-    windowManager.addListener(this);
+    WindowManagerPlus.current.addListener(this);
+    // WindowManagerPlus.addGlobalListener(this);
     _init();
     super.initState();
   }
 
   @override
   void dispose() {
+    _methodNameController.dispose();
+    _firstArgController.dispose();
     trayManager.removeListener(this);
-    windowManager.removeListener(this);
+    WindowManagerPlus.current.removeListener(this);
+    // WindowManagerPlus.removeGlobalListener(this);
     super.dispose();
   }
 
@@ -110,7 +119,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
           : 'images/tray_icon_original.png';
     }
 
-    await windowManager.setIcon(iconPath);
+    await WindowManagerPlus.current.setIcon(iconPath);
   }
 
   Widget _buildBody(BuildContext context) {
@@ -128,7 +137,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                         : ThemeMode.light;
 
                 await sharedConfigManager.setThemeMode(newThemeMode);
-                await windowManager.setBrightness(
+                await WindowManagerPlus.current.setBrightness(
                   newThemeMode == ThemeMode.light
                       ? Brightness.light
                       : Brightness.dark,
@@ -142,73 +151,163 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
           title: const Text('METHODS'),
           children: [
             PreferenceListItem(
+              title: const Text('createWindow'),
+              onTap: () async {
+                final newWindow = await WindowManagerPlus.createWindow(
+                    ['test args 1', 'test args 2']);
+                BotToast.showText(text: 'New Created Window: $newWindow');
+              },
+            ),
+            PreferenceListItem(
+              title: const Text('getAllWindowManagerIds'),
+              onTap: () async {
+                final windowManagerIds =
+                    await WindowManagerPlus.getAllWindowManagerIds();
+                BotToast.showText(
+                    text: 'WindowManager ID List: $windowManagerIds');
+              },
+            ),
+            PreferenceListItem(
+              title: const Text('invokeMethodToWindow'),
+              onTap: () async {
+                final sortedWindowManagerIds =
+                    (await WindowManagerPlus.getAllWindowManagerIds())
+                        .where((wId) => wId != WindowManagerPlus.current.id)
+                        .toList();
+                sortedWindowManagerIds.sort();
+                int? selectedWindowTargetId = await showDialog(
+                  context: context,
+                  builder: (_) {
+                    return AlertDialog(
+                      title: const Text(
+                          'Select the Target Window to invoke the method'),
+                      content: SizedBox(
+                        width: 300,
+                        height: 300,
+                        child: ListView(
+                          children: [
+                            TextField(
+                              controller: _methodNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Method name to be invoked',
+                              ),
+                            ),
+                            TextField(
+                              controller: _firstArgController,
+                              decoration: const InputDecoration(
+                                labelText: 'First argument to be passed',
+                              ),
+                            ),
+                            for (var id in sortedWindowManagerIds)
+                              ListTile(
+                                title: Text('WindowManager ID: $id'),
+                                onTap: () {
+                                  Navigator.of(context).pop(id);
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          child: const Text('Cancel'),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                );
+
+                if (selectedWindowTargetId != null) {
+                  final response = await WindowManagerPlus.current
+                      .invokeMethodToWindow(
+                      selectedWindowTargetId,
+                      _methodNameController.text,
+                      _firstArgController.text
+                          .trim()
+                          .isNotEmpty
+                          ? [_firstArgController.text.trim()]
+                          : null);
+                  BotToast.showText(
+                      text: 'Response from $selectedWindowTargetId: $response');
+                }
+              },
+            ),
+            PreferenceListItem(
               title: const Text('setAsFrameless'),
               onTap: () async {
-                await windowManager.setAsFrameless();
+                await WindowManagerPlus.current.setAsFrameless();
               },
             ),
             PreferenceListItem(
               title: const Text('close'),
               onTap: () async {
-                await windowManager.close();
+                await WindowManagerPlus.current.close();
                 await Future.delayed(const Duration(seconds: 2));
-                await windowManager.show();
+                await WindowManagerPlus.current.show();
               },
             ),
             PreferenceListSwitchItem(
               title: const Text('isPreventClose / setPreventClose'),
               onTap: () async {
-                _isPreventClose = await windowManager.isPreventClose();
+                _isPreventClose =
+                    await WindowManagerPlus.current.isPreventClose();
                 BotToast.showText(text: 'isPreventClose: $_isPreventClose');
               },
               value: _isPreventClose,
               onChanged: (newValue) async {
                 _isPreventClose = newValue;
-                await windowManager.setPreventClose(_isPreventClose);
+                await WindowManagerPlus.current
+                    .setPreventClose(_isPreventClose);
                 setState(() {});
               },
             ),
             PreferenceListItem(
               title: const Text('focus / blur'),
               onTap: () async {
-                await windowManager.blur();
+                await WindowManagerPlus.current.blur();
                 await Future.delayed(const Duration(seconds: 2));
-                print('isFocused: ${await windowManager.isFocused()}');
+                print(
+                    'isFocused: ${await WindowManagerPlus.current.isFocused()}');
                 await Future.delayed(const Duration(seconds: 2));
-                await windowManager.focus();
+                await WindowManagerPlus.current.focus();
                 await Future.delayed(const Duration(seconds: 2));
-                print('isFocused: ${await windowManager.isFocused()}');
+                print(
+                    'isFocused: ${await WindowManagerPlus.current.isFocused()}');
               },
             ),
             PreferenceListItem(
               title: const Text('show / hide'),
               onTap: () async {
-                await windowManager.hide();
+                await WindowManagerPlus.current.hide();
                 await Future.delayed(const Duration(seconds: 2));
-                await windowManager.show();
-                await windowManager.focus();
+                await WindowManagerPlus.current.show();
+                await WindowManagerPlus.current.focus();
               },
             ),
             PreferenceListItem(
               title: const Text('isVisible'),
               onTap: () async {
-                bool isVisible = await windowManager.isVisible();
+                bool isVisible = await WindowManagerPlus.current.isVisible();
                 BotToast.showText(
                   text: 'isVisible: $isVisible',
                 );
 
                 await Future.delayed(const Duration(seconds: 2));
-                windowManager.hide();
-                isVisible = await windowManager.isVisible();
+                WindowManagerPlus.current.hide();
+                isVisible = await WindowManagerPlus.current.isVisible();
                 print('isVisible: $isVisible');
                 await Future.delayed(const Duration(seconds: 2));
-                windowManager.show();
+                WindowManagerPlus.current.show();
               },
             ),
             PreferenceListItem(
               title: const Text('isMaximized'),
               onTap: () async {
-                bool isMaximized = await windowManager.isMaximized();
+                bool isMaximized =
+                    await WindowManagerPlus.current.isMaximized();
                 BotToast.showText(
                   text: 'isMaximized: $isMaximized',
                 );
@@ -217,39 +316,40 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListItem(
               title: const Text('maximize / unmaximize'),
               onTap: () async {
-                windowManager.maximize();
+                WindowManagerPlus.current.maximize();
                 await Future.delayed(const Duration(seconds: 2));
-                windowManager.unmaximize();
+                WindowManagerPlus.current.unmaximize();
               },
             ),
             PreferenceListItem(
               title: const Text('isMinimized'),
               onTap: () async {
-                bool isMinimized = await windowManager.isMinimized();
+                bool isMinimized =
+                    await WindowManagerPlus.current.isMinimized();
                 BotToast.showText(
                   text: 'isMinimized: $isMinimized',
                 );
 
                 await Future.delayed(const Duration(seconds: 2));
-                windowManager.minimize();
+                WindowManagerPlus.current.minimize();
                 await Future.delayed(const Duration(seconds: 2));
-                isMinimized = await windowManager.isMinimized();
+                isMinimized = await WindowManagerPlus.current.isMinimized();
                 print('isMinimized: $isMinimized');
-                windowManager.restore();
+                WindowManagerPlus.current.restore();
               },
             ),
             PreferenceListItem(
               title: const Text('minimize / restore'),
               onTap: () async {
-                windowManager.minimize();
+                WindowManagerPlus.current.minimize();
                 await Future.delayed(const Duration(seconds: 2));
-                windowManager.restore();
+                WindowManagerPlus.current.restore();
               },
             ),
             PreferenceListItem(
               title: const Text('dock / undock'),
               onTap: () async {
-                DockSide? isDocked = await windowManager.isDocked();
+                DockSide? isDocked = await WindowManagerPlus.current.isDocked();
                 BotToast.showText(text: 'isDocked: $isDocked');
               },
               accessoryView: Row(
@@ -257,19 +357,21 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                   CupertinoButton(
                     child: const Text('dock left'),
                     onPressed: () async {
-                      windowManager.dock(side: DockSide.left, width: 500);
+                      WindowManagerPlus.current
+                          .dock(side: DockSide.left, width: 500);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('dock right'),
                     onPressed: () async {
-                      windowManager.dock(side: DockSide.right, width: 500);
+                      WindowManagerPlus.current
+                          .dock(side: DockSide.right, width: 500);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('undock'),
                     onPressed: () async {
-                      windowManager.undock();
+                      WindowManagerPlus.current.undock();
                     },
                   ),
                 ],
@@ -278,13 +380,14 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListSwitchItem(
               title: const Text('isFullScreen / setFullScreen'),
               onTap: () async {
-                bool isFullScreen = await windowManager.isFullScreen();
+                bool isFullScreen =
+                    await WindowManagerPlus.current.isFullScreen();
                 BotToast.showText(text: 'isFullScreen: $isFullScreen');
               },
               value: _isFullScreen,
               onChanged: (newValue) {
                 _isFullScreen = newValue;
-                windowManager.setFullScreen(_isFullScreen);
+                WindowManagerPlus.current.setFullScreen(_isFullScreen);
                 setState(() {});
               },
             ),
@@ -295,25 +398,25 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                   CupertinoButton(
                     child: const Text('reset'),
                     onPressed: () async {
-                      windowManager.setAspectRatio(0);
+                      WindowManagerPlus.current.setAspectRatio(0);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('1:1'),
                     onPressed: () async {
-                      windowManager.setAspectRatio(1);
+                      WindowManagerPlus.current.setAspectRatio(1);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('16:9'),
                     onPressed: () async {
-                      windowManager.setAspectRatio(16 / 9);
+                      WindowManagerPlus.current.setAspectRatio(16 / 9);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('4:3'),
                     onPressed: () async {
-                      windowManager.setAspectRatio(4 / 3);
+                      WindowManagerPlus.current.setAspectRatio(4 / 3);
                     },
                   ),
                 ],
@@ -326,25 +429,27 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                   CupertinoButton(
                     child: const Text('transparent'),
                     onPressed: () async {
-                      windowManager.setBackgroundColor(Colors.transparent);
+                      WindowManagerPlus.current
+                          .setBackgroundColor(Colors.transparent);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('red'),
                     onPressed: () async {
-                      windowManager.setBackgroundColor(Colors.red);
+                      WindowManagerPlus.current.setBackgroundColor(Colors.red);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('green'),
                     onPressed: () async {
-                      windowManager.setBackgroundColor(Colors.green);
+                      WindowManagerPlus.current
+                          .setBackgroundColor(Colors.green);
                     },
                   ),
                   CupertinoButton(
                     child: const Text('blue'),
                     onPressed: () async {
-                      windowManager.setBackgroundColor(Colors.blue);
+                      WindowManagerPlus.current.setBackgroundColor(Colors.blue);
                     },
                   ),
                 ],
@@ -359,7 +464,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     _size,
                     Alignment.center,
                   );
-                  await windowManager.setBounds(
+                  await WindowManagerPlus.current.setBounds(
                     // Rect.fromLTWH(
                     //   bounds.left + 10,
                     //   bounds.top + 10,
@@ -380,7 +485,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                 ],
               ),
               onTap: () async {
-                Rect bounds = await windowManager.getBounds();
+                Rect bounds = await WindowManagerPlus.current.getBounds();
                 Size size = bounds.size;
                 Offset origin = bounds.topLeft;
                 BotToast.showText(
@@ -397,7 +502,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('topLeft'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.topLeft,
                           animate: true,
                         );
@@ -406,7 +511,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('topCenter'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.topCenter,
                           animate: true,
                         );
@@ -415,7 +520,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('topRight'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.topRight,
                           animate: true,
                         );
@@ -424,7 +529,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('centerLeft'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.centerLeft,
                           animate: true,
                         );
@@ -433,7 +538,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('center'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.center,
                           animate: true,
                         );
@@ -442,7 +547,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('centerRight'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.centerRight,
                           animate: true,
                         );
@@ -451,7 +556,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('bottomLeft'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.bottomLeft,
                           animate: true,
                         );
@@ -460,7 +565,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('bottomCenter'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.bottomCenter,
                           animate: true,
                         );
@@ -469,7 +574,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     CupertinoButton(
                       child: const Text('bottomRight'),
                       onPressed: () async {
-                        await windowManager.setAlignment(
+                        await WindowManagerPlus.current.setAlignment(
                           Alignment.bottomRight,
                           animate: true,
                         );
@@ -483,7 +588,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListItem(
               title: const Text('center'),
               onTap: () async {
-                await windowManager.center();
+                await WindowManagerPlus.current.center();
               },
             ),
             PreferenceListItem(
@@ -493,46 +598,50 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                   CupertinoButton(
                     child: const Text('xy>zero'),
                     onPressed: () async {
-                      windowManager.setPosition(const Offset(0, 0));
+                      WindowManagerPlus.current.setPosition(const Offset(0, 0));
                       setState(() {});
                     },
                   ),
                   CupertinoButton(
                     child: const Text('x+20'),
                     onPressed: () async {
-                      Offset p = await windowManager.getPosition();
-                      windowManager.setPosition(Offset(p.dx + 20, p.dy));
+                      Offset p = await WindowManagerPlus.current.getPosition();
+                      WindowManagerPlus.current
+                          .setPosition(Offset(p.dx + 20, p.dy));
                       setState(() {});
                     },
                   ),
                   CupertinoButton(
                     child: const Text('x-20'),
                     onPressed: () async {
-                      Offset p = await windowManager.getPosition();
-                      windowManager.setPosition(Offset(p.dx - 20, p.dy));
+                      Offset p = await WindowManagerPlus.current.getPosition();
+                      WindowManagerPlus.current
+                          .setPosition(Offset(p.dx - 20, p.dy));
                       setState(() {});
                     },
                   ),
                   CupertinoButton(
                     child: const Text('y+20'),
                     onPressed: () async {
-                      Offset p = await windowManager.getPosition();
-                      windowManager.setPosition(Offset(p.dx, p.dy + 20));
+                      Offset p = await WindowManagerPlus.current.getPosition();
+                      WindowManagerPlus.current
+                          .setPosition(Offset(p.dx, p.dy + 20));
                       setState(() {});
                     },
                   ),
                   CupertinoButton(
                     child: const Text('y-20'),
                     onPressed: () async {
-                      Offset p = await windowManager.getPosition();
-                      windowManager.setPosition(Offset(p.dx, p.dy - 20));
+                      Offset p = await WindowManagerPlus.current.getPosition();
+                      WindowManagerPlus.current
+                          .setPosition(Offset(p.dx, p.dy - 20));
                       setState(() {});
                     },
                   ),
                 ],
               ),
               onTap: () async {
-                Offset position = await windowManager.getPosition();
+                Offset position = await WindowManagerPlus.current.getPosition();
                 BotToast.showText(
                   text: position.toString(),
                 );
@@ -543,15 +652,15 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
               accessoryView: CupertinoButton(
                 child: const Text('Set'),
                 onPressed: () async {
-                  Size size = await windowManager.getSize();
-                  windowManager.setSize(
+                  Size size = await WindowManagerPlus.current.getSize();
+                  WindowManagerPlus.current.setSize(
                     Size(size.width + 100, size.height + 100),
                   );
                   setState(() {});
                 },
               ),
               onTap: () async {
-                Size size = await windowManager.getSize();
+                Size size = await WindowManagerPlus.current.getSize();
                 BotToast.showText(
                   text: size.toString(),
                 );
@@ -562,7 +671,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
               accessoryView: ToggleButtons(
                 onPressed: (int index) {
                   _minSize = _kMinSizes[index];
-                  windowManager.setMinimumSize(_minSize!);
+                  WindowManagerPlus.current.setMinimumSize(_minSize!);
                   setState(() {});
                 },
                 isSelected: _kMinSizes.map((e) => e == _minSize).toList(),
@@ -577,7 +686,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
               accessoryView: ToggleButtons(
                 onPressed: (int index) {
                   _maxSize = _kMaxSizes[index];
-                  windowManager.setMaximumSize(_maxSize!);
+                  WindowManagerPlus.current.setMaximumSize(_maxSize!);
                   setState(() {});
                 },
                 isSelected: _kMaxSizes.map((e) => e == _maxSize).toList(),
@@ -590,40 +699,43 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListSwitchItem(
               title: const Text('isResizable / setResizable'),
               onTap: () async {
-                bool isResizable = await windowManager.isResizable();
+                bool isResizable =
+                    await WindowManagerPlus.current.isResizable();
                 BotToast.showText(text: 'isResizable: $isResizable');
               },
               value: _isResizable,
               onChanged: (newValue) {
                 _isResizable = newValue;
-                windowManager.setResizable(_isResizable);
+                WindowManagerPlus.current.setResizable(_isResizable);
                 setState(() {});
               },
             ),
             PreferenceListSwitchItem(
               title: const Text('isMovable / setMovable'),
               onTap: () async {
-                bool isMovable = await windowManager.isMovable();
+                bool isMovable = await WindowManagerPlus.current.isMovable();
                 BotToast.showText(text: 'isMovable: $isMovable');
               },
               value: _isMovable,
               onChanged: (newValue) {
                 _isMovable = newValue;
-                windowManager.setMovable(_isMovable);
+                WindowManagerPlus.current.setMovable(_isMovable);
                 setState(() {});
               },
             ),
             PreferenceListSwitchItem(
               title: const Text('isMinimizable / setMinimizable'),
               onTap: () async {
-                _isMinimizable = await windowManager.isMinimizable();
+                _isMinimizable =
+                    await WindowManagerPlus.current.isMinimizable();
                 setState(() {});
                 BotToast.showText(text: 'isMinimizable: $_isMinimizable');
               },
               value: _isMinimizable,
               onChanged: (newValue) async {
-                await windowManager.setMinimizable(newValue);
-                _isMinimizable = await windowManager.isMinimizable();
+                await WindowManagerPlus.current.setMinimizable(newValue);
+                _isMinimizable =
+                    await WindowManagerPlus.current.isMinimizable();
                 print('isMinimizable: $_isMinimizable');
                 setState(() {});
               },
@@ -631,14 +743,16 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListSwitchItem(
               title: const Text('isMaximizable / setMaximizable'),
               onTap: () async {
-                _isMaximizable = await windowManager.isMaximizable();
+                _isMaximizable =
+                    await WindowManagerPlus.current.isMaximizable();
                 setState(() {});
                 BotToast.showText(text: 'isClosable: $_isMaximizable');
               },
               value: _isMaximizable,
               onChanged: (newValue) async {
-                await windowManager.setMaximizable(newValue);
-                _isMaximizable = await windowManager.isMaximizable();
+                await WindowManagerPlus.current.setMaximizable(newValue);
+                _isMaximizable =
+                    await WindowManagerPlus.current.isMaximizable();
                 print('isMaximizable: $_isMaximizable');
                 setState(() {});
               },
@@ -646,14 +760,14 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListSwitchItem(
               title: const Text('isClosable / setClosable'),
               onTap: () async {
-                _isClosable = await windowManager.isClosable();
+                _isClosable = await WindowManagerPlus.current.isClosable();
                 setState(() {});
                 BotToast.showText(text: 'isClosable: $_isClosable');
               },
               value: _isClosable,
               onChanged: (newValue) async {
-                await windowManager.setClosable(newValue);
-                _isClosable = await windowManager.isClosable();
+                await WindowManagerPlus.current.setClosable(newValue);
+                _isClosable = await WindowManagerPlus.current.isClosable();
                 print('isClosable: $_isClosable');
                 setState(() {});
               },
@@ -661,39 +775,42 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListSwitchItem(
               title: const Text('isAlwaysOnTop / setAlwaysOnTop'),
               onTap: () async {
-                bool isAlwaysOnTop = await windowManager.isAlwaysOnTop();
+                bool isAlwaysOnTop =
+                    await WindowManagerPlus.current.isAlwaysOnTop();
                 BotToast.showText(text: 'isAlwaysOnTop: $isAlwaysOnTop');
               },
               value: _isAlwaysOnTop,
               onChanged: (newValue) {
                 _isAlwaysOnTop = newValue;
-                windowManager.setAlwaysOnTop(_isAlwaysOnTop);
+                WindowManagerPlus.current.setAlwaysOnTop(_isAlwaysOnTop);
                 setState(() {});
               },
             ),
             PreferenceListSwitchItem(
               title: const Text('isAlwaysOnBottom / setAlwaysOnBottom'),
               onTap: () async {
-                bool isAlwaysOnBottom = await windowManager.isAlwaysOnBottom();
+                bool isAlwaysOnBottom =
+                    await WindowManagerPlus.current.isAlwaysOnBottom();
                 BotToast.showText(text: 'isAlwaysOnBottom: $isAlwaysOnBottom');
               },
               value: _isAlwaysOnBottom,
               onChanged: (newValue) async {
                 _isAlwaysOnBottom = newValue;
-                await windowManager.setAlwaysOnBottom(_isAlwaysOnBottom);
+                await WindowManagerPlus.current
+                    .setAlwaysOnBottom(_isAlwaysOnBottom);
                 setState(() {});
               },
             ),
             PreferenceListItem(
               title: const Text('getTitle / setTitle'),
               onTap: () async {
-                String title = await windowManager.getTitle();
+                String title = await WindowManagerPlus.current.getTitle();
                 BotToast.showText(
                   text: title.toString(),
                 );
                 title =
-                    'window_manager_example - ${DateTime.now().millisecondsSinceEpoch}';
-                await windowManager.setTitle(title);
+                    'Window ID ${WindowManagerPlus.current.id} - ${DateTime.now().millisecondsSinceEpoch}';
+                await WindowManagerPlus.current.setTitle(title);
               },
             ),
             PreferenceListItem(
@@ -703,7 +820,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                   CupertinoButton(
                     child: const Text('normal'),
                     onPressed: () async {
-                      windowManager.setTitleBarStyle(
+                      WindowManagerPlus.current.setTitleBarStyle(
                         TitleBarStyle.normal,
                         windowButtonVisibility: true,
                       );
@@ -713,7 +830,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                   CupertinoButton(
                     child: const Text('hidden'),
                     onPressed: () async {
-                      windowManager.setTitleBarStyle(
+                      WindowManagerPlus.current.setTitleBarStyle(
                         TitleBarStyle.hidden,
                         windowButtonVisibility: false,
                       );
@@ -727,7 +844,8 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListItem(
               title: const Text('getTitleBarHeight'),
               onTap: () async {
-                int titleBarHeight = await windowManager.getTitleBarHeight();
+                int titleBarHeight =
+                    await WindowManagerPlus.current.getTitleBarHeight();
                 BotToast.showText(
                   text: 'titleBarHeight: $titleBarHeight',
                 );
@@ -736,7 +854,8 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListItem(
               title: const Text('isSkipTaskbar'),
               onTap: () async {
-                bool isSkipping = await windowManager.isSkipTaskbar();
+                bool isSkipping =
+                    await WindowManagerPlus.current.isSkipTaskbar();
                 BotToast.showText(
                   text: 'isSkipTaskbar: $isSkipping',
                 );
@@ -748,9 +867,9 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                 setState(() {
                   _isSkipTaskbar = !_isSkipTaskbar;
                 });
-                await windowManager.setSkipTaskbar(_isSkipTaskbar);
+                await WindowManagerPlus.current.setSkipTaskbar(_isSkipTaskbar);
                 await Future.delayed(const Duration(seconds: 3));
-                windowManager.show();
+                WindowManagerPlus.current.show();
               },
             ),
             PreferenceListItem(
@@ -761,11 +880,11 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     _progress = i / 100;
                   });
                   print(_progress);
-                  await windowManager.setProgressBar(_progress);
+                  await WindowManagerPlus.current.setProgressBar(_progress);
                   await Future.delayed(const Duration(milliseconds: 100));
                 }
                 await Future.delayed(const Duration(milliseconds: 1000));
-                await windowManager.setProgressBar(-1);
+                await WindowManagerPlus.current.setProgressBar(-1);
               },
             ),
             PreferenceListItem(
@@ -790,7 +909,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
               ),
               onTap: () async {
                 bool isVisibleOnAllWorkspaces =
-                    await windowManager.isVisibleOnAllWorkspaces();
+                    await WindowManagerPlus.current.isVisibleOnAllWorkspaces();
                 BotToast.showText(
                   text: 'isVisibleOnAllWorkspaces: $isVisibleOnAllWorkspaces',
                 );
@@ -798,7 +917,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
               value: _isVisibleOnAllWorkspaces,
               onChanged: (newValue) {
                 _isVisibleOnAllWorkspaces = newValue;
-                windowManager.setVisibleOnAllWorkspaces(
+                WindowManagerPlus.current.setVisibleOnAllWorkspaces(
                   _isVisibleOnAllWorkspaces,
                   visibleOnFullScreen: _isVisibleOnAllWorkspaces,
                 );
@@ -812,13 +931,13 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                   CupertinoButton(
                     child: const Text('null'),
                     onPressed: () async {
-                      await windowManager.setBadgeLabel();
+                      await WindowManagerPlus.current.setBadgeLabel();
                     },
                   ),
                   CupertinoButton(
                     child: const Text('99+'),
                     onPressed: () async {
-                      await windowManager.setBadgeLabel('99+');
+                      await WindowManagerPlus.current.setBadgeLabel('99+');
                     },
                   ),
                 ],
@@ -828,7 +947,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListSwitchItem(
               title: const Text('hasShadow / setHasShadow'),
               onTap: () async {
-                bool hasShadow = await windowManager.hasShadow();
+                bool hasShadow = await WindowManagerPlus.current.hasShadow();
                 BotToast.showText(
                   text: 'hasShadow: $hasShadow',
                 );
@@ -836,14 +955,14 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
               value: _hasShadow,
               onChanged: (newValue) {
                 _hasShadow = newValue;
-                windowManager.setHasShadow(_hasShadow);
+                WindowManagerPlus.current.setHasShadow(_hasShadow);
                 setState(() {});
               },
             ),
             PreferenceListItem(
               title: const Text('getOpacity / setOpacity'),
               onTap: () async {
-                double opacity = await windowManager.getOpacity();
+                double opacity = await WindowManagerPlus.current.getOpacity();
                 BotToast.showText(
                   text: 'opacity: $opacity',
                 );
@@ -854,7 +973,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     child: const Text('1'),
                     onPressed: () async {
                       _opacity = 1;
-                      windowManager.setOpacity(_opacity);
+                      WindowManagerPlus.current.setOpacity(_opacity);
                       setState(() {});
                     },
                   ),
@@ -862,7 +981,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     child: const Text('0.8'),
                     onPressed: () async {
                       _opacity = 0.8;
-                      windowManager.setOpacity(_opacity);
+                      WindowManagerPlus.current.setOpacity(_opacity);
                       setState(() {});
                     },
                   ),
@@ -870,7 +989,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     child: const Text('0.6'),
                     onPressed: () async {
                       _opacity = 0.5;
-                      windowManager.setOpacity(_opacity);
+                      WindowManagerPlus.current.setOpacity(_opacity);
                       setState(() {});
                     },
                   ),
@@ -882,7 +1001,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
               value: _isIgnoreMouseEvents,
               onChanged: (newValue) async {
                 _isIgnoreMouseEvents = newValue;
-                await windowManager.setIgnoreMouseEvents(
+                await WindowManagerPlus.current.setIgnoreMouseEvents(
                   _isIgnoreMouseEvents,
                   forward: false,
                 );
@@ -892,21 +1011,21 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
             PreferenceListItem(
               title: const Text('popUpWindowMenu'),
               onTap: () async {
-                await windowManager.popUpWindowMenu();
+                await WindowManagerPlus.current.popUpWindowMenu();
               },
             ),
-            PreferenceListItem(
-              title: const Text('grabKeyboard'),
-              onTap: () async {
-                await windowManager.grabKeyboard();
-              },
-            ),
-            PreferenceListItem(
-              title: const Text('ungrabKeyboard'),
-              onTap: () async {
-                await windowManager.ungrabKeyboard();
-              },
-            ),
+            // PreferenceListItem(
+            //   title: const Text('grabKeyboard'),
+            //   onTap: () async {
+            //     await WindowManagerPlus.current.grabKeyboard();
+            //   },
+            // ),
+            // PreferenceListItem(
+            //   title: const Text('ungrabKeyboard'),
+            //   onTap: () async {
+            //     await WindowManagerPlus.current.ungrabKeyboard();
+            //   },
+            // ),
           ],
         ),
       ],
@@ -936,7 +1055,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                     preferredSize: const Size.fromHeight(kWindowCaptionHeight),
                     child: WindowCaption(
                       brightness: Theme.of(context).brightness,
-                      title: const Text('window_manager_example'),
+                      title: Text('Window ID ${WindowManagerPlus.current.id}'),
                     ),
                   ),
             body: Column(
@@ -944,14 +1063,15 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                 GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onPanStart: (details) {
-                    windowManager.startDragging();
+                    WindowManagerPlus.current.startDragging();
                   },
                   onDoubleTap: () async {
-                    bool isMaximized = await windowManager.isMaximized();
+                    bool isMaximized =
+                        await WindowManagerPlus.current.isMaximized();
                     if (!isMaximized) {
-                      windowManager.maximize();
+                      WindowManagerPlus.current.maximize();
                     } else {
-                      windowManager.unmaximize();
+                      WindowManagerPlus.current.unmaximize();
                     }
                   },
                   child: Container(
@@ -1004,12 +1124,12 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
     return MouseRegion(
       onEnter: (_) {
         if (_isIgnoreMouseEvents) {
-          windowManager.setOpacity(1.0);
+          WindowManagerPlus.current.setOpacity(1.0);
         }
       },
       onExit: (_) {
         if (_isIgnoreMouseEvents) {
-          windowManager.setOpacity(0.5);
+          WindowManagerPlus.current.setOpacity(0.5);
         }
       },
       child: _build(context),
@@ -1018,7 +1138,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
 
   @override
   void onTrayIconMouseDown() {
-    windowManager.show();
+    WindowManagerPlus.current.show();
   }
 
   @override
@@ -1030,23 +1150,30 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
   Future<void> onTrayMenuItemClick(MenuItem menuItem) async {
     switch (menuItem.key) {
       case 'show_window':
-        await windowManager.focus();
+        await WindowManagerPlus.current.focus();
         break;
       case 'set_ignore_mouse_events':
         _isIgnoreMouseEvents = false;
-        await windowManager.setIgnoreMouseEvents(_isIgnoreMouseEvents);
+        await WindowManagerPlus.current
+            .setIgnoreMouseEvents(_isIgnoreMouseEvents);
         setState(() {});
         break;
     }
   }
 
   @override
-  void onWindowFocus() {
+  void onWindowFocus([int? windowId]) {
+    if (windowId != null) {
+      return;
+    }
     setState(() {});
   }
 
   @override
-  void onWindowClose() {
+  void onWindowClose([int? windowId]) {
+    if (windowId != null) {
+      return;
+    }
     if (_isPreventClose) {
       showDialog(
         context: context,
@@ -1064,7 +1191,7 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
                 child: const Text('Yes'),
                 onPressed: () {
                   Navigator.of(context).pop();
-                  windowManager.destroy();
+                  WindowManagerPlus.current.destroy();
                 },
               ),
             ],
@@ -1075,7 +1202,17 @@ class _HomePageState extends State<HomePage> with TrayListener, WindowListener {
   }
 
   @override
-  void onWindowEvent(String eventName) {
-    print('[WindowManager] onWindowEvent: $eventName');
+  void onWindowEvent(String eventName, [int? windowId]) {
+    print(
+        '[${windowId != null ? "Global Event for Window $windowId from ${WindowManagerPlus.current}" : WindowManagerPlus.current}] onWindowEvent: $eventName');
+  }
+
+  @override
+  Future<dynamic> onEventFromWindow(
+      String eventName, int fromWindowId, dynamic arguments) async {
+    BotToast.showText(
+        text:
+            '[${WindowManagerPlus.current}] Event $eventName from Window $fromWindowId with arguments $arguments');
+    return 'Hello from ${WindowManagerPlus.current}';
   }
 }

@@ -1,27 +1,31 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager_plus/window_manager_plus.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
+  if (kDebugMode) {
+    print(args);
+  }
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  await windowManager.ensureInitialized();
-  await windowManager.waitUntilReadyToShow(
+  await WindowManagerPlus.ensureInitialized(args.isEmpty ? 0 : int.parse(args[0]));
+  await WindowManagerPlus.current.waitUntilReadyToShow(
     const WindowOptions(
       size: Size(640, 480),
       title: 'window_manager_test',
     ),
     () async {
-      await windowManager.show();
-      await windowManager.focus();
+      await WindowManagerPlus.current.show();
+      await WindowManagerPlus.current.focus();
     },
   );
 
   testWidgets('getBounds', (tester) async {
     expect(
-      await windowManager.getBounds(),
+      await WindowManagerPlus.current.getBounds(),
       isA<Rect>().having((r) => r.size, 'size', const Size(640, 480)),
     );
   });
@@ -29,100 +33,100 @@ Future<void> main() async {
   testWidgets(
     'isAlwaysOnBottom',
     (tester) async {
-      expect(await windowManager.isAlwaysOnBottom(), isFalse);
+      expect(await WindowManagerPlus.current.isAlwaysOnBottom(), isFalse);
     },
     skip: Platform.isMacOS || Platform.isWindows,
   );
 
   testWidgets('isAlwaysOnTop', (tester) async {
-    expect(await windowManager.isAlwaysOnTop(), isFalse);
+    expect(await WindowManagerPlus.current.isAlwaysOnTop(), isFalse);
   });
 
   testWidgets('isClosable', (tester) async {
-    expect(await windowManager.isClosable(), isTrue);
+    expect(await WindowManagerPlus.current.isClosable(), isTrue);
   });
 
   testWidgets('isFocused', (tester) async {
-    expect(await windowManager.isFocused(), isTrue);
+    expect(await WindowManagerPlus.current.isFocused(), isTrue);
   });
 
   testWidgets('isFullScreen', (tester) async {
-    expect(await windowManager.isFullScreen(), isFalse);
+    expect(await WindowManagerPlus.current.isFullScreen(), isFalse);
   });
 
   testWidgets(
     'hasShadow',
     (tester) async {
-      expect(await windowManager.hasShadow(), isTrue);
+      expect(await WindowManagerPlus.current.hasShadow(), isTrue);
     },
     skip: Platform.isLinux,
   );
 
   testWidgets('isMaximizable', (tester) async {
-    expect(await windowManager.isMaximizable(), isTrue);
+    expect(await WindowManagerPlus.current.isMaximizable(), isTrue);
   });
 
   testWidgets('isMaximized', (tester) async {
-    expect(await windowManager.isMaximized(), isFalse);
+    expect(await WindowManagerPlus.current.isMaximized(), isFalse);
   });
 
   testWidgets(
     'isMinimizable',
     (tester) async {
-      expect(await windowManager.isMinimizable(), isTrue);
+      expect(await WindowManagerPlus.current.isMinimizable(), isTrue);
     },
     skip: Platform.isMacOS,
   );
 
   testWidgets('isMinimized', (tester) async {
-    expect(await windowManager.isMinimized(), isFalse);
+    expect(await WindowManagerPlus.current.isMinimized(), isFalse);
   });
 
   testWidgets(
     'isMovable',
     (tester) async {
-      expect(await windowManager.isMovable(), isTrue);
+      expect(await WindowManagerPlus.current.isMovable(), isTrue);
     },
     skip: Platform.isLinux || Platform.isWindows,
   );
 
   testWidgets('getOpacity', (tester) async {
-    expect(await windowManager.getOpacity(), 1.0);
+    expect(await WindowManagerPlus.current.getOpacity(), 1.0);
   });
 
   testWidgets('getPosition', (tester) async {
-    expect(await windowManager.getPosition(), isA<Offset>());
+    expect(await WindowManagerPlus.current.getPosition(), isA<Offset>());
   });
 
   testWidgets('isPreventClose', (tester) async {
-    expect(await windowManager.isPreventClose(), isFalse);
+    expect(await WindowManagerPlus.current.isPreventClose(), isFalse);
   });
 
   testWidgets('isResizable', (tester) async {
-    expect(await windowManager.isResizable(), isTrue);
+    expect(await WindowManagerPlus.current.isResizable(), isTrue);
   });
 
   testWidgets('getSize', (tester) async {
-    expect(await windowManager.getSize(), const Size(640, 480));
+    expect(await WindowManagerPlus.current.getSize(), const Size(640, 480));
   });
 
   testWidgets(
     'isSkipTaskbar',
     (tester) async {
-      expect(await windowManager.isSkipTaskbar(), isFalse);
+      expect(await WindowManagerPlus.current.isSkipTaskbar(), isFalse);
     },
     skip: Platform.isWindows,
   );
 
   testWidgets('getTitle', (tester) async {
-    expect(await windowManager.getTitle(), 'window_manager_test');
+    expect(await WindowManagerPlus.current.getTitle(), 'window_manager_test');
   });
 
   testWidgets('getTitleBarHeight', (tester) async {
-    expect(await windowManager.getTitleBarHeight(), isNonNegative);
+    expect(await WindowManagerPlus.current.getTitleBarHeight(), isNonNegative);
   });
 
   testWidgets('isVisible', (tester) async {
-    expect(await windowManager.isVisible(), isTrue);
+    expect(await WindowManagerPlus.current.isVisible(), isTrue);
   });
 }

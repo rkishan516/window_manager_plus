@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:window_manager/src/resize_edge.dart';
-import 'package:window_manager/src/window_manager.dart';
+import 'package:window_manager_plus/src/resize_edge.dart';
+import 'package:window_manager_plus/src/window_manager.dart';
 
 /// A widget for drag to resize window.
 ///
@@ -56,11 +56,12 @@ class DragToResizeArea extends StatelessWidget {
       child: MouseRegion(
         cursor: cursor,
         child: GestureDetector(
-          onPanStart: (_) => windowManager.startResizing(resizeEdge),
+          onPanStart: (_) =>
+              WindowManagerPlus.current.startResizing(resizeEdge),
           onDoubleTap: () => (Platform.isWindows &&
                   (resizeEdge == ResizeEdge.top ||
                       resizeEdge == ResizeEdge.bottom))
-              ? windowManager.maximize(vertically: true)
+              ? WindowManagerPlus.current.maximize(vertically: true)
               : null,
         ),
       ),

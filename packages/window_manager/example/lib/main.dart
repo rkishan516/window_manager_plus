@@ -1,24 +1,32 @@
 import 'package:bot_toast/bot_toast.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
-import 'package:window_manager_example/pages/home.dart';
-import 'package:window_manager_example/utils/config.dart';
+import 'package:window_manager_plus/window_manager_plus.dart';
+import 'package:window_manager_plus_example/pages/home.dart';
+import 'package:window_manager_plus_example/utils/config.dart';
 
-void main() async {
+void main(List<String> args) async {
+  if (kDebugMode) {
+    print(args);
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
-  await windowManager.ensureInitialized();
 
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(800, 600),
+  final windowId = args.isEmpty ? 0 : int.tryParse(args[0]) ?? 0;
+  await WindowManagerPlus.ensureInitialized(windowId);
+
+  WindowOptions windowOptions = WindowOptions(
+    size: const Size(800, 600),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.hidden,
     windowButtonVisibility: false,
+    title: 'Window ID ${WindowManagerPlus.current.id}',
   );
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
+  WindowManagerPlus.current.waitUntilReadyToShow(windowOptions, () async {
+    await WindowManagerPlus.current.show();
+    await WindowManagerPlus.current.focus();
   });
 
   runApp(const MyApp());

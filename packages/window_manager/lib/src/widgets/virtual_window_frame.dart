@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:window_manager/src/resize_edge.dart';
-import 'package:window_manager/src/widgets/drag_to_resize_area.dart';
-import 'package:window_manager/src/window_listener.dart';
-import 'package:window_manager/src/window_manager.dart';
+import 'package:window_manager_plus/src/resize_edge.dart';
+import 'package:window_manager_plus/src/widgets/drag_to_resize_area.dart';
+import 'package:window_manager_plus/src/window_listener.dart';
+import 'package:window_manager_plus/src/window_manager.dart';
 
 final _kIsLinux = !kIsWeb && Platform.isLinux;
 final _kIsWindows = !kIsWeb && Platform.isWindows;
@@ -31,13 +31,13 @@ class _VirtualWindowFrameState extends State<VirtualWindowFrame>
 
   @override
   void initState() {
-    windowManager.addListener(this);
+    WindowManagerPlus.current.addListener(this);
     super.initState();
   }
 
   @override
   void dispose() {
-    windowManager.removeListener(this);
+    WindowManagerPlus.current.removeListener(this);
     super.dispose();
   }
 
@@ -94,42 +94,42 @@ class _VirtualWindowFrameState extends State<VirtualWindowFrame>
   }
 
   @override
-  void onWindowFocus() {
+  void onWindowFocus([int? windowId]) {
     setState(() {
       _isFocused = true;
     });
   }
 
   @override
-  void onWindowBlur() {
+  void onWindowBlur([int? windowId]) {
     setState(() {
       _isFocused = false;
     });
   }
 
   @override
-  void onWindowMaximize() {
+  void onWindowMaximize([int? windowId]) {
     setState(() {
       _isMaximized = true;
     });
   }
 
   @override
-  void onWindowUnmaximize() {
+  void onWindowUnmaximize([int? windowId]) {
     setState(() {
       _isMaximized = false;
     });
   }
 
   @override
-  void onWindowEnterFullScreen() {
+  void onWindowEnterFullScreen([int? windowId]) {
     setState(() {
       _isFullScreen = true;
     });
   }
 
   @override
-  void onWindowLeaveFullScreen() {
+  void onWindowLeaveFullScreen([int? windowId]) {
     setState(() {
       _isFullScreen = false;
     });

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:window_manager/src/window_manager.dart';
+import 'package:window_manager_plus/src/window_manager.dart';
 
 /// A widget for drag to move window.
 ///
@@ -32,14 +32,14 @@ class DragToMoveArea extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onPanStart: (details) {
-        windowManager.startDragging();
+        WindowManagerPlus.current.startDragging();
       },
       onDoubleTap: () async {
-        bool isMaximized = await windowManager.isMaximized();
+        bool isMaximized = await WindowManagerPlus.current.isMaximized();
         if (!isMaximized) {
-          windowManager.maximize();
+          WindowManagerPlus.current.maximize();
         } else {
-          windowManager.unmaximize();
+          WindowManagerPlus.current.unmaximize();
         }
       },
       child: child,

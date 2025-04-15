@@ -2,6 +2,8 @@
 
 #include <flutter_windows.h>
 
+#include <iostream>
+
 #include "resource.h"
 
 namespace {

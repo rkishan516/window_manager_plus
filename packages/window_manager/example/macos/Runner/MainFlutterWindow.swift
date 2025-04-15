@@ -1,6 +1,6 @@
 import Cocoa
 import FlutterMacOS
-import window_manager
+import window_manager_plus
 
 class MainFlutterWindow: NSPanel {
     override func awakeFromNib() {
@@ -11,7 +11,7 @@ class MainFlutterWindow: NSPanel {
         
         RegisterGeneratedPlugins(registry: flutterViewController)
         
-        WindowManagerPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
+        WindowManagerPlusPlugin.RegisterGeneratedPlugins = RegisterGeneratedPlugins
         
         super.awakeFromNib()
     }

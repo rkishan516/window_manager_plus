@@ -1,6 +1,10 @@
 .dart_tool/
 .idea/
-
-*.iml
-pubspec_overrides.yaml
-pubspec.lock
+.packages
+.pub/
+.vscode/
+build/
+Generated*
+generated*
+doc/
+.fvm
